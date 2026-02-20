@@ -13,6 +13,7 @@ import {
   ConfirmDialogData,
 } from '../../../utils/confirm-dialog-component';
 import { OrderFormDialogComponent } from './components/order-form-dialog.component';
+import { OrderDetailsDialogComponent } from './components/order-details-dialog.component';
 
 @Component({
   selector: 'app-orders',
@@ -67,6 +68,14 @@ import { OrderFormDialogComponent } from './components/order-form-dialog.compone
             <ng-container matColumnDef="actions">
               <th mat-header-cell *matHeaderCellDef>Ações</th>
               <td mat-cell *matCellDef="let o">
+                <button
+                  mat-icon-button
+                  color="primary"
+                  (click)="openDetails(o)"
+                  title="Ver Detalhes"
+                >
+                  <mat-icon>visibility</mat-icon>
+                </button>
                 <button
                   mat-icon-button
                   color="warn"
@@ -151,6 +160,14 @@ export class OrdersComponent implements OnInit {
       if (saved) {
         this.loadData();
       }
+    });
+  }
+
+  openDetails(order: any) {
+    this.dialog.open(OrderDetailsDialogComponent, {
+      width: '800px',
+      maxWidth: '100vw',
+      data: { order: order },
     });
   }
 
