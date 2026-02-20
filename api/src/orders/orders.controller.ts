@@ -1,10 +1,21 @@
-import { Controller, Get, Post, Body, UseGuards, Req } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  UseGuards,
+  Req,
+  Delete,
+  Param,
+} from '@nestjs/common';
 import { Request } from 'express';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { ApiTags } from '@nestjs/swagger';
 import { User } from '../users/entities/user.entity';
+import { Roles } from 'src/auth/roles.decorator';
+import { UserRole } from 'src/users/role.enum';
 
 interface RequestWithUser extends Request {
   user: User;
@@ -24,5 +35,11 @@ export class OrdersController {
   @Get()
   findAll() {
     return this.ordersService.findAll();
+  }
+
+  @Delete(':id')
+  @Roles(UserRole.ADMIN)
+  remove(@Param('id') id: string) {
+    return this.ordersService.remove(id);
   }
 }
