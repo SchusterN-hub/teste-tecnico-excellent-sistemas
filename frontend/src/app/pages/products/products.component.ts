@@ -1,175 +1,102 @@
 import { Component, inject, OnInit } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { CommonModule } from '@angular/common';
 import { ProductsService, Product } from '../../services/products.service';
 import { MatTableModule } from '@angular/material/table';
 import { MatButtonModule } from '@angular/material/button';
-import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
-import { CommonModule } from '@angular/common';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { environment } from '../../../enviroments/environment';
-import { NgxMaskDirective } from 'ngx-mask';
-import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { environment } from '../../../enviroments/environment';
+import { ProductFormDialogComponent } from './components/product-form-dialog.component';
 import {
   ConfirmDialogComponent,
   ConfirmDialogData,
-} from '../../../components/confirm-dialog-component';
+} from '../../../utils/confirm-dialog-component';
 
 @Component({
   selector: 'app-products',
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule,
     MatTableModule,
     MatButtonModule,
-    MatInputModule,
     MatIconModule,
     MatCardModule,
     MatSnackBarModule,
-    MatFormFieldModule,
-    NgxMaskDirective,
     MatPaginatorModule,
+    MatDialogModule,
   ],
   template: `
     <div class="container">
-      <mat-card class="form-card">
-        <mat-card-header>
-          <mat-card-title>{{
-            editingId ? 'Editar Produto' : 'Novo Produto'
-          }}</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <form [formGroup]="form" (ngSubmit)="save()">
-            <div class="row">
-              <mat-form-field
-                appearance="outline"
-                class="flex-grow"
-                floatLabel="always"
-              >
-                <mat-label>Descrição</mat-label>
-                <input
-                  matInput
-                  type="text"
-                  formControlName="description"
-                  placeholder="Ex: Monitor Gamer 24'"
-                />
-              </mat-form-field>
+      <div class="header-actions">
+        <h1>Gerenciar Produtos</h1>
+        <button mat-raised-button color="primary" (click)="openForm()">
+          <mat-icon>add</mat-icon> Novo Produto
+        </button>
+      </div>
 
-              <mat-form-field appearance="outline" floatLabel="always">
-                <mat-label>Preço</mat-label>
-                <input
-                  matInput
-                  type="text"
-                  formControlName="sale_price"
-                  prefix="R$ "
-                  mask="separator.2"
-                  thousandSeparator="."
-                  decimalMarker=","
-                />
-              </mat-form-field>
+      <mat-card>
+        <mat-card-content class="table-container">
+          <table mat-table [dataSource]="products">
+            <ng-container matColumnDef="image">
+              <th mat-header-cell *matHeaderCellDef>Imagem</th>
+              <td mat-cell *matCellDef="let p">
+                @if (p.images && p.images.length > 0) {
+                  <img
+                    [src]="backendUrl + p.images[0]"
+                    class="thumb"
+                    alt="Foto"
+                  />
+                } @else {
+                  <mat-icon>image_not_supported</mat-icon>
+                }
+              </td>
+            </ng-container>
 
-              <mat-form-field
-                appearance="outline"
-                style="width: 100px"
-                floatLabel="always"
-              >
-                <mat-label>Estoque</mat-label>
-                <input matInput type="number" formControlName="stock" />
-              </mat-form-field>
-            </div>
+            <ng-container matColumnDef="description">
+              <th mat-header-cell *matHeaderCellDef>Descrição</th>
+              <td mat-cell *matCellDef="let p">{{ p.description }}</td>
+            </ng-container>
 
-            <div class="file-upload">
-              <label>Imagens do Produto:</label>
-              <input
-                type="file"
-                multiple
-                (change)="onFileSelected($event)"
-                accept="image/*"
-              />
-              <span class="file-info" *ngIf="selectedFiles.length">
-                {{ selectedFiles.length }} arquivos selecionados
-              </span>
-            </div>
+            <ng-container matColumnDef="price">
+              <th mat-header-cell *matHeaderCellDef>Preço</th>
+              <td mat-cell *matCellDef="let p">
+                {{ p.sale_price | currency: 'BRL' }}
+              </td>
+            </ng-container>
 
-            <div class="actions-row">
-              <button
-                mat-raised-button
-                color="primary"
-                type="submit"
-                [disabled]="form.status !== 'VALID'"
-              >
-                {{ editingId ? 'Atualizar Produto' : 'Salvar Produto' }}
-              </button>
+            <ng-container matColumnDef="stock">
+              <th mat-header-cell *matHeaderCellDef>Estoque</th>
+              <td mat-cell *matCellDef="let p">{{ p.stock }}</td>
+            </ng-container>
 
-              <button
-                *ngIf="editingId"
-                mat-button
-                type="button"
-                (click)="cancelEdit()"
-              >
-                Cancelar Edição
-              </button>
-            </div>
-          </form>
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef>Ações</th>
+              <td mat-cell *matCellDef="let p">
+                <button mat-icon-button color="primary" (click)="openForm(p)">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="delete(p.id)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+
+          <mat-paginator
+            [length]="totalItems"
+            [pageSize]="pageSize"
+            [pageSizeOptions]="[5, 10, 20]"
+            (page)="onPageChange($event)"
+          >
+          </mat-paginator>
         </mat-card-content>
       </mat-card>
-
-      <table mat-table [dataSource]="products" class="mat-elevation-z8">
-        <ng-container matColumnDef="image">
-          <th mat-header-cell *matHeaderCellDef>Imagem</th>
-          <td mat-cell *matCellDef="let p">
-            @if (p.images && p.images.length > 0) {
-              <img [src]="backendUrl + p.images[0]" class="thumb" alt="Foto" />
-            } @else {
-              <mat-icon>image_not_supported</mat-icon>
-            }
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="description">
-          <th mat-header-cell *matHeaderCellDef>Descrição</th>
-          <td mat-cell *matCellDef="let p">{{ p.description }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="price">
-          <th mat-header-cell *matHeaderCellDef>Preço</th>
-          <td mat-cell *matCellDef="let p">
-            {{ p.sale_price | currency: 'BRL' }}
-          </td>
-        </ng-container>
-
-        <ng-container matColumnDef="stock">
-          <th mat-header-cell *matHeaderCellDef>Estoque</th>
-          <td mat-cell *matCellDef="let p">{{ p.stock }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef>Ações</th>
-          <td mat-cell *matCellDef="let p">
-            <button mat-icon-button color="primary" (click)="edit(p)">
-              <mat-icon>edit</mat-icon>
-            </button>
-            <button mat-icon-button color="warn" (click)="delete(p.id)">
-              <mat-icon>delete</mat-icon>
-            </button>
-          </td>
-        </ng-container>
-
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
-      </table>
-
-      <mat-paginator
-        [length]="totalItems"
-        [pageSize]="pageSize"
-        [pageSizeOptions]="[5, 10, 20]"
-        (page)="onPageChange($event)"
-      >
-      </mat-paginator>
     </div>
   `,
   styles: [
@@ -178,15 +105,21 @@ import {
         display: flex;
         flex-direction: column;
         gap: 20px;
+        padding: 20px;
       }
-      .flex-grow {
-        flex: 1;
+      .header-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
       }
-      .file-upload {
-        margin-bottom: 20px;
-        padding: 10px;
-        border: 1px dashed #ccc;
-        border-radius: 4px;
+      .header-actions h1 {
+        margin: 0;
+      }
+      .table-container {
+        padding: 0; /* Remove o padding padrão do card para a tabela encostar nas bordas */
+      }
+      table {
+        width: 100%;
       }
       .thumb {
         width: 50px;
@@ -194,33 +127,18 @@ import {
         object-fit: cover;
         border-radius: 4px;
       }
-      .file-info {
-        margin-left: 10px;
-        color: green;
-        font-weight: bold;
-      }
-      .row {
-        display: flex;
-        gap: 10px;
-        align-items: flex-start;
-      }
-      .actions-row {
-        display: flex;
-        gap: 10px;
-        align-items: center;
+      .mat-mdc-card-content {
+        background-color: #faf9fd;
       }
     `,
   ],
 })
 export class ProductsComponent implements OnInit {
-  fb = inject(FormBuilder);
   service = inject(ProductsService);
   snack = inject(MatSnackBar);
   dialog = inject(MatDialog);
 
   products: Product[] = [];
-  selectedFiles: File[] = [];
-  editingId: string | null = null;
 
   totalItems = 0;
   pageSize = 10;
@@ -228,21 +146,6 @@ export class ProductsComponent implements OnInit {
 
   backendUrl = environment.apiUrl.replace('/api/v1', '');
   displayedColumns = ['image', 'description', 'price', 'stock', 'actions'];
-
-  form = this.fb.group({
-    description: this.fb.control('', {
-      validators: Validators.required,
-      nonNullable: true,
-    }),
-    sale_price: this.fb.control('', {
-      validators: Validators.required,
-      nonNullable: true,
-    }),
-    stock: this.fb.control(0, {
-      validators: [Validators.required, Validators.min(0)],
-      nonNullable: true,
-    }),
-  });
 
   ngOnInit() {
     this.load();
@@ -275,63 +178,17 @@ export class ProductsComponent implements OnInit {
     this.load();
   }
 
-  onFileSelected(event: any) {
-    if (event.target.files) {
-      this.selectedFiles = Array.from(event.target.files);
-    }
-  }
-
-  edit(product: Product) {
-    this.editingId = product.id || null;
-    this.form.patchValue({
-      description: product.description,
-      sale_price: product.sale_price.toString(),
-      stock: product.stock,
+  openForm(product?: Product) {
+    const dialogRef = this.dialog.open(ProductFormDialogComponent, {
+      width: '600px',
+      disableClose: true,
+      data: { product },
     });
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  }
 
-  cancelEdit() {
-    this.editingId = null;
-    this.form.reset({ description: '', sale_price: '', stock: 0 });
-    this.selectedFiles = [];
-  }
-
-  save() {
-    if (this.form.invalid) return;
-
-    const formValue = this.form.getRawValue();
-    let rawPrice = formValue.sale_price.toString();
-    rawPrice = rawPrice
-      .replace('R$', '')
-      .replace(/\s/g, '')
-      .replace(/\./g, '')
-      .replace(',', '.');
-
-    const productData: Product = {
-      description: formValue.description,
-      stock: Number(formValue.stock),
-      sale_price: parseFloat(rawPrice),
-    };
-
-    const request = this.editingId
-      ? this.service.update(this.editingId, productData, this.selectedFiles)
-      : this.service.create(productData, this.selectedFiles);
-
-    request.subscribe({
-      next: () => {
-        this.snack.open(
-          this.editingId ? 'Produto atualizado!' : 'Produto criado!',
-          'OK',
-          { duration: 3000 },
-        );
-        this.cancelEdit();
+    dialogRef.afterClosed().subscribe((saved: boolean) => {
+      if (saved) {
         this.load();
-      },
-      error: (err) => {
-        console.error(err);
-        this.snack.open('Erro ao salvar produto', 'X', { duration: 3000 });
-      },
+      }
     });
   }
 

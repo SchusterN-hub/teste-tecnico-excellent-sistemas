@@ -19,7 +19,7 @@ import { environment } from '../../../enviroments/environment';
 import {
   ConfirmDialogComponent,
   ConfirmDialogData,
-} from '../../../components/confirm-dialog-component';
+} from '../../../utils/confirm-dialog-component';
 
 function cnpjValidator(
   control: AbstractControl,

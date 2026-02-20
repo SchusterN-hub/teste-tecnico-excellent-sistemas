@@ -83,12 +83,22 @@ export class ProductsController {
   @Patch(':id')
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(FilesInterceptor('files', 10, multerConfig))
-  update(
+  async update(
     @Param('id') id: string,
     @Body() updateProductDto: UpdateProductDto,
-    @UploadedFiles() files: Express.Multer.File[],
+    @UploadedFiles() files?: Express.Multer.File[],
   ) {
-    return this.productsService.update(id, updateProductDto, files);
+    try {
+      return await this.productsService.update(
+        id,
+        updateProductDto,
+        files || [],
+      );
+    } catch (error) {
+      console.error('ERRO CRÍTICO NO UPDATE DE PRODUTOS:');
+      console.error(error);
+      throw error;
+    }
   }
 
   @Delete(':id')

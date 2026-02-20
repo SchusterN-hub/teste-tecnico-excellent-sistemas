@@ -18,7 +18,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import {
   ConfirmDialogComponent,
   ConfirmDialogData,
-} from '../../../components/confirm-dialog-component';
+} from '../../../utils/confirm-dialog-component';
 
 interface CartItem {
   product: Product;
@@ -47,7 +47,7 @@ interface CartItem {
       <div class="header-row">
         <h1>Nova Venda</h1>
         <h2 class="total-badge">
-          Total Carrinho: {{ cartTotal | currency: 'BRL' }}
+          Total do pedido: {{ cartTotal | currency: 'BRL' }}
         </h2>
       </div>
 

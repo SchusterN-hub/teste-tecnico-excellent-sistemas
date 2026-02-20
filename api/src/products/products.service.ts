@@ -55,20 +55,36 @@ export class ProductsService {
   ) {
     const product = await this.findOne(id);
 
+    let imagensAntigas: string[] = [];
+    if (updateProductDto.images) {
+      try {
+        imagensAntigas = Array.isArray(updateProductDto.images)
+          ? updateProductDto.images
+          : (JSON.parse(updateProductDto.images) as string[]);
+      } catch {
+        imagensAntigas = Array.isArray(updateProductDto.images)
+          ? updateProductDto.images
+          : [updateProductDto.images];
+      }
+    }
+
     this.productRepository.merge(product, updateProductDto);
 
+    let imagensFinais = [...imagensAntigas];
+
     if (files && Array.isArray(files) && files.length > 0) {
-      const filePaths = files.map((file) => {
+      const novasImagens = files.map((file) => {
         const name = file.filename || file.originalname || `img-${Date.now()}`;
         return `/uploads/${name}`;
       });
 
-      product.images = filePaths;
+      imagensFinais = [...imagensFinais, ...novasImagens];
     }
+
+    product.images = imagensFinais;
 
     return this.productRepository.save(product);
   }
-
   async remove(id: string) {
     const product = await this.findOne(id);
     return this.productRepository.remove(product);

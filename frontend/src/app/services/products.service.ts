@@ -56,6 +56,10 @@ export class ProductsService {
     formData.append('sale_price', product.sale_price.toString());
     formData.append('stock', product.stock.toString());
 
+    if (product.images) {
+      formData.append('images', JSON.stringify(product.images));
+    }
+
     if (files && files.length > 0) {
       files.forEach((file) => formData.append('files', file));
     }
