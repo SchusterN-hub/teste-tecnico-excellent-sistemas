@@ -7,6 +7,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDividerModule } from '@angular/material/divider';
 import { CommonModule } from '@angular/common';
 import { HttpClient } from '@angular/common/http';
 
@@ -33,12 +34,15 @@ interface CartItem {
     MatCardModule,
     MatIconModule,
     MatSnackBarModule,
+    MatDividerModule,
   ],
   template: `
     <div class="container">
       <div class="header-row">
         <h1>Nova Venda</h1>
-        <h2 class="total-badge">Total: {{ total | currency: 'BRL' }}</h2>
+        <h2 class="total-badge">
+          Total Carrinho: {{ cartTotal | currency: 'BRL' }}
+        </h2>
       </div>
 
       <mat-card class="form-card">
@@ -56,7 +60,7 @@ interface CartItem {
             </mat-form-field>
           </form>
 
-          <hr />
+          <mat-divider style="margin: 15px 0"></mat-divider>
 
           <form [formGroup]="itemForm" (ngSubmit)="addItem()" class="row">
             <mat-form-field appearance="outline" class="flex-grow">
@@ -95,57 +99,106 @@ interface CartItem {
         </mat-card-content>
       </mat-card>
 
-      <table mat-table [dataSource]="cart" class="mat-elevation-z8">
-        <ng-container matColumnDef="product">
-          <th mat-header-cell *matHeaderCellDef>Produto</th>
-          <td mat-cell *matCellDef="let item">
-            {{ item.product.description }}
+      <mat-card *ngIf="cart.length > 0">
+        <mat-card-header>
+          <mat-card-title>Itens do Pedido Atual</mat-card-title>
+        </mat-card-header>
+        <mat-card-content>
+          <table mat-table [dataSource]="cart">
+            <ng-container matColumnDef="product">
+              <th mat-header-cell *matHeaderCellDef>Produto</th>
+              <td mat-cell *matCellDef="let item">
+                {{ item.product.description }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="price">
+              <th mat-header-cell *matHeaderCellDef>Preço Unit.</th>
+              <td mat-cell *matCellDef="let item">
+                {{ item.product.sale_price | currency: 'BRL' }}
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="quantity">
+              <th mat-header-cell *matHeaderCellDef>Qtd</th>
+              <td mat-cell *matCellDef="let item">{{ item.quantity }}</td>
+            </ng-container>
+
+            <ng-container matColumnDef="subtotal">
+              <th mat-header-cell *matHeaderCellDef>Subtotal</th>
+              <td mat-cell *matCellDef="let item">
+                <strong>{{ item.subtotal | currency: 'BRL' }}</strong>
+              </td>
+            </ng-container>
+
+            <ng-container matColumnDef="actions">
+              <th mat-header-cell *matHeaderCellDef></th>
+              <td mat-cell *matCellDef="let item; let i = index">
+                <button mat-icon-button color="warn" (click)="removeItem(i)">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </td>
+            </ng-container>
+
+            <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+            <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+          </table>
+          <div class="footer-actions">
+            <button
+              mat-raised-button
+              color="primary"
+              [disabled]="headerForm.invalid"
+              (click)="finishOrder()"
+            >
+              FINALIZAR PEDIDO
+            </button>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <mat-divider></mat-divider>
+
+      <div class="header-row">
+        <h1>Pedidos Realizados</h1>
+      </div>
+
+      <table mat-table [dataSource]="pastOrders" class="mat-elevation-z8">
+        <ng-container matColumnDef="id">
+          <th mat-header-cell *matHeaderCellDef>Pedido</th>
+          <td mat-cell *matCellDef="let o">#{{ o.id.substring(0, 8) }}</td>
+        </ng-container>
+
+        <ng-container matColumnDef="date">
+          <th mat-header-cell *matHeaderCellDef>Data</th>
+          <td mat-cell *matCellDef="let o">
+            {{ o.createdAt | date: 'dd/MM/yyyy HH:mm' }}
           </td>
         </ng-container>
 
-        <ng-container matColumnDef="price">
-          <th mat-header-cell *matHeaderCellDef>Preço Unit.</th>
-          <td mat-cell *matCellDef="let item">
-            {{ item.product.sale_price | currency: 'BRL' }}
-          </td>
+        <ng-container matColumnDef="customer">
+          <th mat-header-cell *matHeaderCellDef>Cliente</th>
+          <td mat-cell *matCellDef="let o">{{ o.customer?.razao_social }}</td>
         </ng-container>
 
-        <ng-container matColumnDef="quantity">
-          <th mat-header-cell *matHeaderCellDef>Qtd</th>
-          <td mat-cell *matCellDef="let item">{{ item.quantity }}</td>
-        </ng-container>
-
-        <ng-container matColumnDef="subtotal">
-          <th mat-header-cell *matHeaderCellDef>Subtotal</th>
-          <td mat-cell *matCellDef="let item">
-            <strong>{{ item.subtotal | currency: 'BRL' }}</strong>
+        <ng-container matColumnDef="total">
+          <th mat-header-cell *matHeaderCellDef>Total</th>
+          <td mat-cell *matCellDef="let o">
+            <strong>{{ calculateOrderTotal(o) | currency: 'BRL' }}</strong>
           </td>
         </ng-container>
 
         <ng-container matColumnDef="actions">
-          <th mat-header-cell *matHeaderCellDef></th>
-          <td mat-cell *matCellDef="let item; let i = index">
-            <button mat-icon-button color="warn" (click)="removeItem(i)">
-              <mat-icon>delete</mat-icon>
+          <th mat-header-cell *matHeaderCellDef>Ações</th>
+          <td mat-cell *matCellDef="let o">
+            <button mat-icon-button color="warn" (click)="deleteOrder(o.id)">
+              <mat-icon>delete_forever</mat-icon>
             </button>
           </td>
         </ng-container>
 
-        <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
-        <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
+        <tr mat-header-row *matHeaderRowDef="orderColumns"></tr>
+        <tr mat-row *matRowDef="let row; columns: orderColumns"></tr>
       </table>
-
-      <div class="footer-actions">
-        <button
-          mat-raised-button
-          color="primary"
-          size="large"
-          [disabled]="cart.length === 0 || headerForm.invalid"
-          (click)="finishOrder()"
-        >
-          FINALIZAR PEDIDO
-        </button>
-      </div>
     </div>
   `,
   styles: [
@@ -181,11 +234,6 @@ interface CartItem {
         justify-content: flex-end;
         margin-top: 20px;
       }
-      hr {
-        border: 0;
-        border-top: 1px solid #eee;
-        margin: 20px 0;
-      }
     `,
   ],
 })
@@ -199,8 +247,10 @@ export class OrdersComponent implements OnInit {
   customers: any[] = [];
   products: Product[] = [];
   cart: CartItem[] = [];
+  pastOrders: any[] = []; // Array para armazenar os pedidos vindos do banco
 
   displayedColumns = ['product', 'price', 'quantity', 'subtotal', 'actions'];
+  orderColumns = ['id', 'date', 'customer', 'total', 'actions']; // Colunas da tabela de histórico
 
   headerForm = this.fb.group({
     customerId: ['', Validators.required],
@@ -216,45 +266,59 @@ export class OrdersComponent implements OnInit {
   }
 
   loadData() {
+    // 1. Clientes
     this.http.get<any>(`${environment.apiUrl}/customers`).subscribe((res) => {
       this.customers = Array.isArray(res) ? res : res.data || [];
     });
 
+    // 2. Produtos (com paginação configurada anteriormente)
     this.productsService.getAll(1, 100).subscribe({
-      next: (res) => {
-        this.products = res.data;
+      next: (res) => (this.products = res.data),
+      error: (err) => console.error('Erro ao carregar produtos', err),
+    });
+
+    // 3. Listagem de Pedidos Realizados
+    this.ordersService.getAll().subscribe({
+      next: (res: any) => {
+        // Assume que o getAll de pedidos pode ser um array direto ou paginado
+        this.pastOrders = Array.isArray(res) ? res : res.data || [];
       },
       error: (err) =>
-        console.error('Erro ao carregar produtos para venda', err),
+        console.error('Erro ao carregar histórico de pedidos', err),
     });
   }
 
-  get total(): number {
+  get cartTotal(): number {
     return this.cart.reduce((acc, item) => acc + item.subtotal, 0);
+  }
+
+  calculateOrderTotal(order: any): number {
+    if (!order.items) return 0;
+    return order.items.reduce(
+      (acc: number, item: any) => acc + item.price * item.quantity,
+      0,
+    );
   }
 
   addItem() {
     if (this.itemForm.invalid) return;
-
     const { product, quantity } = this.itemForm.value;
 
     if (product && quantity) {
       const existingItem = this.cart.find(
         (item) => item.product.id === product.id,
       );
-
       if (existingItem) {
         existingItem.quantity += quantity;
         existingItem.subtotal =
           existingItem.quantity * Number(product.sale_price);
       } else {
         this.cart.push({
-          product: product,
-          quantity: quantity,
+          product,
+          quantity,
           subtotal: quantity * Number(product.sale_price),
         });
       }
-
       this.cart = [...this.cart];
       this.itemForm.reset({ product: null, quantity: 1 });
     }
@@ -278,21 +342,32 @@ export class OrdersComponent implements OnInit {
 
     this.ordersService.create(payload).subscribe({
       next: () => {
-        this.snack.open('Pedido realizado com sucesso!', 'SUCESSO', {
-          duration: 4000,
-        });
+        this.snack.open('Pedido finalizado!', 'SUCESSO', { duration: 3000 });
         this.cart = [];
         this.headerForm.reset();
-        this.loadData();
+        this.loadData(); // Atualiza a lista de pedidos e o estoque dos produtos
       },
-      error: (err) => {
-        this.snack.open(
-          'Erro ao fechar pedido: ' +
-            (err.error?.message || 'Erro desconhecido'),
-          'X',
-          { duration: 4000 },
-        );
-      },
+      error: (err) =>
+        this.snack.open(err.error?.message || 'Erro ao salvar', 'X', {
+          duration: 4000,
+        }),
     });
+  }
+
+  deleteOrder(id: string) {
+    if (confirm('Deseja excluir este pedido permanentemente?')) {
+      this.ordersService.delete(id).subscribe({
+        next: () => {
+          this.snack.open('Pedido removido', 'OK', { duration: 2000 });
+          this.loadData();
+        },
+        error: () =>
+          this.snack.open(
+            'Erro: Apenas administradores podem excluir pedidos',
+            'X',
+            { duration: 4000 },
+          ),
+      });
+    }
   }
 }
