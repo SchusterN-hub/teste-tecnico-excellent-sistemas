@@ -81,6 +81,7 @@ export class CustomersService {
 
   async remove(id: string) {
     const customer = await this.findOne(id);
-    return this.repository.remove(customer);
+
+    return this.repository.softRemove(customer);
   }
 }
