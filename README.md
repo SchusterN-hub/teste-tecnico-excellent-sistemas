@@ -17,7 +17,7 @@ A forma mais simples e recomendada de executar a aplicação é utilizando o **D
 1.  **Clone o repositório:**
 
     ```bash
-    git clone [https://github.com/SchusterN-hub/teste-tecnico-excellent-sistemas.git](https://github.com/SchusterN-hub/teste-tecnico-excellent-sistemas.git)
+    git clone https://github.com/SchusterN-hub/teste-tecnico-excellent-sistemas.git
     ```
 
 2.  **Execute o comando de build e inicialização na raiz do projeto:**
