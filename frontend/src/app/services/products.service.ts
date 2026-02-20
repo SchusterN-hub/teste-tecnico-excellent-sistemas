@@ -50,6 +50,19 @@ export class ProductsService {
     return this.http.post(this.apiUrl, formData);
   }
 
+  update(id: string, product: Product, files: File[]) {
+    const formData = new FormData();
+    formData.append('description', product.description);
+    formData.append('sale_price', product.sale_price.toString());
+    formData.append('stock', product.stock.toString());
+
+    if (files && files.length > 0) {
+      files.forEach((file) => formData.append('files', file));
+    }
+
+    return this.http.patch(`${this.apiUrl}/${id}`, formData);
+  }
+
   delete(id: string) {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }

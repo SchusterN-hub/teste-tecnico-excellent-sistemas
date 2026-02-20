@@ -33,7 +33,9 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
     <div class="container">
       <mat-card class="form-card">
         <mat-card-header>
-          <mat-card-title>Novo Produto</mat-card-title>
+          <mat-card-title>{{
+            editingId ? 'Editar Produto' : 'Novo Produto'
+          }}</mat-card-title>
         </mat-card-header>
         <mat-card-content>
           <form [formGroup]="form" (ngSubmit)="save()">
@@ -44,7 +46,12 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
                 floatLabel="always"
               >
                 <mat-label>Descrição</mat-label>
-                <input matInput type="text" formControlName="description" />
+                <input
+                  matInput
+                  type="text"
+                  formControlName="description"
+                  placeholder="Ex: Monitor Gamer 24'"
+                />
               </mat-form-field>
 
               <mat-form-field appearance="outline" floatLabel="always">
@@ -83,14 +90,25 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
               </span>
             </div>
 
-            <button
-              mat-raised-button
-              color="primary"
-              type="submit"
-              [disabled]="form.status !== 'VALID'"
-            >
-              Salvar Produto
-            </button>
+            <div class="actions-row">
+              <button
+                mat-raised-button
+                color="primary"
+                type="submit"
+                [disabled]="form.status !== 'VALID'"
+              >
+                {{ editingId ? 'Atualizar Produto' : 'Salvar Produto' }}
+              </button>
+
+              <button
+                *ngIf="editingId"
+                mat-button
+                type="button"
+                (click)="cancelEdit()"
+              >
+                Cancelar Edição
+              </button>
+            </div>
           </form>
         </mat-card-content>
       </mat-card>
@@ -127,6 +145,9 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
         <ng-container matColumnDef="actions">
           <th mat-header-cell *matHeaderCellDef>Ações</th>
           <td mat-cell *matCellDef="let p">
+            <button mat-icon-button color="primary" (click)="edit(p)">
+              <mat-icon>edit</mat-icon>
+            </button>
             <button mat-icon-button color="warn" (click)="delete(p.id)">
               <mat-icon>delete</mat-icon>
             </button>
@@ -153,7 +174,6 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
         flex-direction: column;
         gap: 20px;
       }
-
       .flex-grow {
         flex: 1;
       }
@@ -179,6 +199,11 @@ import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
         gap: 10px;
         align-items: flex-start;
       }
+      .actions-row {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
     `,
   ],
 })
@@ -189,13 +214,13 @@ export class ProductsComponent implements OnInit {
 
   products: Product[] = [];
   selectedFiles: File[] = [];
+  editingId: string | null = null;
 
   totalItems = 0;
   pageSize = 10;
   pageIndex = 0;
 
   backendUrl = environment.apiUrl.replace('/api/v1', '');
-
   displayedColumns = ['image', 'description', 'price', 'stock', 'actions'];
 
   form = this.fb.group({
@@ -219,7 +244,6 @@ export class ProductsComponent implements OnInit {
 
   load() {
     const pageParaApi = this.pageIndex + 1;
-
     this.service.getAll(pageParaApi, this.pageSize).subscribe({
       next: (res: any) => {
         if (res && res.data) {
@@ -232,7 +256,6 @@ export class ProductsComponent implements OnInit {
       },
       error: (err) => {
         console.error('Erro ao carregar produtos:', err);
-        this.products = [];
         this.snack.open('Erro ao carregar lista de produtos', 'X', {
           duration: 3000,
         });
@@ -252,53 +275,71 @@ export class ProductsComponent implements OnInit {
     }
   }
 
+  edit(product: Product) {
+    this.editingId = product.id || null;
+    this.form.patchValue({
+      description: product.description,
+      sale_price: product.sale_price.toString(),
+      stock: product.stock,
+    });
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  cancelEdit() {
+    this.editingId = null;
+    this.form.reset({ description: '', sale_price: '', stock: 0 });
+    this.selectedFiles = [];
+  }
+
   save() {
     if (this.form.invalid) return;
 
-    const formValue = this.form.value;
-
-    let rawPrice = formValue.sale_price?.toString() || '0';
+    const formValue = this.form.getRawValue();
+    let rawPrice = formValue.sale_price.toString();
     rawPrice = rawPrice
       .replace('R$', '')
       .replace(/\s/g, '')
       .replace(/\./g, '')
       .replace(',', '.');
 
-    const product: Product = {
-      description: formValue.description as string,
+    const productData: Product = {
+      description: formValue.description,
       stock: Number(formValue.stock),
       sale_price: parseFloat(rawPrice),
     };
 
-    this.service.create(product, this.selectedFiles).subscribe({
-      next: () => {
-        this.snack.open('Produto criado com sucesso!', 'OK', {
-          duration: 3000,
-        });
+    const request = this.editingId
+      ? this.service.update(this.editingId, productData, this.selectedFiles)
+      : this.service.create(productData, this.selectedFiles);
 
-        this.form.reset({ description: '', sale_price: '', stock: 0 });
-        this.selectedFiles = [];
+    request.subscribe({
+      next: () => {
+        this.snack.open(
+          this.editingId ? 'Produto atualizado!' : 'Produto criado!',
+          'OK',
+          { duration: 3000 },
+        );
+        this.cancelEdit();
         this.load();
       },
       error: (err) => {
-        this.snack.open('Erro ao criar produto', 'X', { duration: 3000 });
         console.error(err);
+        this.snack.open('Erro ao salvar produto', 'X', { duration: 3000 });
       },
     });
   }
 
   delete(id: string) {
-    if (confirm('Deseja realmente excluir?')) {
+    if (confirm('Deseja realmente excluir este produto?')) {
       this.service.delete(id).subscribe({
         next: () => {
           this.snack.open('Produto excluído', 'OK', { duration: 2000 });
           this.load();
         },
-        error: (err) => {
-          this.snack.open('Erro: Você não tem permissão (Admin only)', 'X', {
+        error: () =>
+          this.snack.open('Erro: Apenas administradores podem excluir', 'X', {
             duration: 3000,
-          });
-        },
+          }),
       });
     }
   }

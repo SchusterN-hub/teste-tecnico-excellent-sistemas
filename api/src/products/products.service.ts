@@ -48,9 +48,24 @@ export class ProductsService {
     return product;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto) {
+  async update(
+    id: string,
+    updateProductDto: UpdateProductDto,
+    files?: Express.Multer.File[],
+  ) {
     const product = await this.findOne(id);
+
     this.productRepository.merge(product, updateProductDto);
+
+    if (files && Array.isArray(files) && files.length > 0) {
+      const filePaths = files.map((file) => {
+        const name = file.filename || file.originalname || `img-${Date.now()}`;
+        return `/uploads/${name}`;
+      });
+
+      product.images = filePaths;
+    }
+
     return this.productRepository.save(product);
   }
 

@@ -24,6 +24,17 @@ import { UserRole } from '../users/role.enum';
 import { ApiConsumes, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
 import { PaginationDto } from 'src/common/dto/pagination.dto';
 
+const multerConfig = {
+  storage: diskStorage({
+    destination: './uploads',
+    filename: (req, file, callback) => {
+      const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
+      const ext = extname(file.originalname);
+      callback(null, `${file.fieldname}-${uniqueSuffix}${ext}`);
+    },
+  }),
+};
+
 @ApiTags('Products')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -35,7 +46,7 @@ export class ProductsController {
   @Roles(UserRole.ADMIN)
   @ApiConsumes('multipart/form-data')
   @UseInterceptors(
-    FilesInterceptor('files', 5, {
+    FilesInterceptor('files', 10, {
       storage: diskStorage({
         destination: './uploads',
         filename: (req, file, callback) => {
@@ -70,9 +81,14 @@ export class ProductsController {
   }
 
   @Patch(':id')
-  @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
-    return this.productsService.update(id, updateProductDto);
+  @ApiConsumes('multipart/form-data')
+  @UseInterceptors(FilesInterceptor('files', 10, multerConfig))
+  update(
+    @Param('id') id: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @UploadedFiles() files: Express.Multer.File[],
+  ) {
+    return this.productsService.update(id, updateProductDto, files);
   }
 
   @Delete(':id')
