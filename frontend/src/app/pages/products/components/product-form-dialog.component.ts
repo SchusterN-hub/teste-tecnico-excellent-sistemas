@@ -30,7 +30,7 @@ import { environment } from '../../../../enviroments/environment';
   ],
   template: `
     <h2 mat-dialog-title>
-      {{ data?.product ? 'Editar Produto' : 'Novo Produto' }}
+      {{ data.product ? 'Editar Produto' : 'Novo Produto' }}
     </h2>
 
     <mat-dialog-content>
@@ -124,7 +124,7 @@ import { environment } from '../../../../enviroments/environment';
         [disabled]="form.invalid"
         (click)="save()"
       >
-        {{ data?.product ? 'Atualizar' : 'Salvar' }}
+        {{ data.product ? 'Atualizar' : 'Salvar' }}
       </button>
     </mat-dialog-actions>
   `,
