@@ -1,0 +1,23 @@
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: teste_db
+    environment:
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: teste_tecnico_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  # TODO: Finalizar configuração do docker compose
+  # backend:
+  #   build: ./api
+  #   ports:
+  #     - "3000:3000"
+  #   depends_on:
+  #     - db
+
+volumes:
+  pgdata:
