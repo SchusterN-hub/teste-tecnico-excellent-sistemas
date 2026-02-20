@@ -14,6 +14,11 @@ import { HttpClient } from '@angular/common/http';
 import { OrdersService, CreateOrderDto } from '../../services/orders.service';
 import { ProductsService, Product } from '../../services/products.service';
 import { environment } from '../../../enviroments/environment';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import {
+  ConfirmDialogComponent,
+  ConfirmDialogData,
+} from '../../../components/confirm-dialog-component';
 
 interface CartItem {
   product: Product;
@@ -35,6 +40,7 @@ interface CartItem {
     MatIconModule,
     MatSnackBarModule,
     MatDividerModule,
+    MatDialogModule,
   ],
   template: `
     <div class="container">
@@ -243,6 +249,7 @@ export class OrdersComponent implements OnInit {
   productsService = inject(ProductsService);
   http = inject(HttpClient);
   snack = inject(MatSnackBar);
+  dialog = inject(MatDialog);
 
   customers: any[] = [];
   products: Product[] = [];
@@ -266,21 +273,17 @@ export class OrdersComponent implements OnInit {
   }
 
   loadData() {
-    // 1. Clientes
     this.http.get<any>(`${environment.apiUrl}/customers`).subscribe((res) => {
       this.customers = Array.isArray(res) ? res : res.data || [];
     });
 
-    // 2. Produtos (com paginação configurada anteriormente)
     this.productsService.getAll(1, 100).subscribe({
       next: (res) => (this.products = res.data),
       error: (err) => console.error('Erro ao carregar produtos', err),
     });
 
-    // 3. Listagem de Pedidos Realizados
     this.ordersService.getAll().subscribe({
       next: (res: any) => {
-        // Assume que o getAll de pedidos pode ser um array direto ou paginado
         this.pastOrders = Array.isArray(res) ? res : res.data || [];
       },
       error: (err) =>
@@ -355,19 +358,34 @@ export class OrdersComponent implements OnInit {
   }
 
   deleteOrder(id: string) {
-    if (confirm('Deseja excluir este pedido permanentemente?')) {
-      this.ordersService.delete(id).subscribe({
-        next: () => {
-          this.snack.open('Pedido removido', 'OK', { duration: 2000 });
-          this.loadData();
-        },
-        error: () =>
-          this.snack.open(
-            'Erro: Apenas administradores podem excluir pedidos',
-            'X',
-            { duration: 4000 },
-          ),
-      });
-    }
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      disableClose: true,
+      data: {
+        title: 'Excluir Pedido',
+        message:
+          'Deseja excluir este pedido permanentemente? O estoque dos produtos não será estornado automaticamente.',
+        confirmText: 'Excluir Pedido',
+        cancelText: 'Cancelar',
+        color: 'warn',
+      } as ConfirmDialogData,
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.ordersService.delete(id).subscribe({
+          next: () => {
+            this.snack.open('Pedido removido', 'OK', { duration: 2000 });
+            this.loadData();
+          },
+          error: () =>
+            this.snack.open(
+              'Erro: Apenas administradores podem excluir pedidos',
+              'X',
+              { duration: 4000 },
+            ),
+        });
+      }
+    });
   }
 }

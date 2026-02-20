@@ -14,7 +14,12 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { NgxMaskDirective, NgxMaskPipe } from 'ngx-mask';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { environment } from '../../../enviroments/environment';
+import {
+  ConfirmDialogComponent,
+  ConfirmDialogData,
+} from '../../../components/confirm-dialog-component';
 
 function cnpjValidator(
   control: AbstractControl,
@@ -69,6 +74,7 @@ function cnpjValidator(
     NgxMaskDirective,
     NgxMaskPipe,
     MatSnackBarModule,
+    MatDialogModule,
   ],
   template: `
     <div class="container">
@@ -174,6 +180,7 @@ export class CustomersComponent implements OnInit {
   fb = inject(FormBuilder);
   http = inject(HttpClient);
   snack = inject(MatSnackBar);
+  dialog = inject(MatDialog);
 
   customers: any[] = [];
   displayedColumns = ['cnpj', 'razao_social', 'email', 'actions'];
@@ -241,17 +248,32 @@ export class CustomersComponent implements OnInit {
   }
 
   delete(id: string) {
-    if (confirm('Tem certeza?')) {
-      this.http.delete(`${this.apiUrl}/${id}`).subscribe({
-        next: () => {
-          this.loadCustomers();
-          this.snack.open('Cliente removido', 'OK', { duration: 2000 });
-        },
-        error: () =>
-          this.snack.open('Sem permissão para excluir', 'X', {
-            duration: 3000,
-          }),
-      });
-    }
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      disableClose: true,
+      data: {
+        title: 'Excluir Cliente',
+        message:
+          'Tem certeza que deseja excluir este cliente? Esta ação não poderá ser desfeita.',
+        confirmText: 'Excluir',
+        cancelText: 'Cancelar',
+        color: 'warn',
+      } as ConfirmDialogData,
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.http.delete(`${this.apiUrl}/${id}`).subscribe({
+          next: () => {
+            this.loadCustomers();
+            this.snack.open('Cliente removido', 'OK', { duration: 2000 });
+          },
+          error: () =>
+            this.snack.open('Sem permissão para excluir', 'X', {
+              duration: 3000,
+            }),
+        });
+      }
+    });
   }
 }

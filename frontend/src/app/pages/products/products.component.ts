@@ -12,6 +12,11 @@ import { environment } from '../../../enviroments/environment';
 import { NgxMaskDirective } from 'ngx-mask';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
+import { MatDialog } from '@angular/material/dialog';
+import {
+  ConfirmDialogComponent,
+  ConfirmDialogData,
+} from '../../../components/confirm-dialog-component';
 
 @Component({
   selector: 'app-products',
@@ -211,6 +216,7 @@ export class ProductsComponent implements OnInit {
   fb = inject(FormBuilder);
   service = inject(ProductsService);
   snack = inject(MatSnackBar);
+  dialog = inject(MatDialog);
 
   products: Product[] = [];
   selectedFiles: File[] = [];
@@ -330,17 +336,32 @@ export class ProductsComponent implements OnInit {
   }
 
   delete(id: string) {
-    if (confirm('Deseja realmente excluir este produto?')) {
-      this.service.delete(id).subscribe({
-        next: () => {
-          this.snack.open('Produto excluído', 'OK', { duration: 2000 });
-          this.load();
-        },
-        error: () =>
-          this.snack.open('Erro: Apenas administradores podem excluir', 'X', {
-            duration: 3000,
-          }),
-      });
-    }
+    const dialogRef = this.dialog.open(ConfirmDialogComponent, {
+      width: '400px',
+      disableClose: true,
+      data: {
+        title: 'Excluir Produto',
+        message:
+          'Tem certeza que deseja excluir este produto? Esta ação não poderá ser desfeita.',
+        confirmText: 'Excluir',
+        cancelText: 'Voltar',
+        color: 'warn',
+      } as ConfirmDialogData,
+    });
+
+    dialogRef.afterClosed().subscribe((confirmed: boolean) => {
+      if (confirmed) {
+        this.service.delete(id).subscribe({
+          next: () => {
+            this.snack.open('Produto excluído', 'OK', { duration: 2000 });
+            this.load();
+          },
+          error: () =>
+            this.snack.open('Erro: Apenas administradores podem excluir', 'X', {
+              duration: 3000,
+            }),
+        });
+      }
+    });
   }
 }
