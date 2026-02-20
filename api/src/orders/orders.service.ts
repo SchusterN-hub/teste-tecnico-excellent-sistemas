@@ -4,7 +4,7 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, DataSource } from 'typeorm';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { Order } from './entities/order.entity';
 import { OrderItem } from './entities/order-item.entity';
@@ -22,51 +22,58 @@ export class OrdersService {
     private customerRepository: Repository<Customer>,
     @InjectRepository(Product)
     private productRepository: Repository<Product>,
+    private dataSource: DataSource,
   ) {}
 
   async create(createOrderDto: CreateOrderDto, user: User) {
-    const customer = await this.customerRepository.findOneBy({
-      id: createOrderDto.customerId,
-    });
-    if (!customer) {
-      throw new NotFoundException('Cliente não encontrado');
-    }
-
-    const orderItems: OrderItem[] = [];
-
-    for (const itemDto of createOrderDto.items) {
-      const product = await this.productRepository.findOneBy({
-        id: itemDto.productId,
+    return this.dataSource.transaction(async (manager) => {
+      const customer = await manager.findOneBy(Customer, {
+        id: createOrderDto.customerId,
       });
 
-      if (!product) {
-        throw new NotFoundException(
-          `Produto ID ${itemDto.productId} não encontrado`,
-        );
+      if (!customer) {
+        throw new NotFoundException('Cliente não encontrado');
       }
 
-      if (product.stock < itemDto.quantity) {
-        throw new BadRequestException(
-          `Estoque insuficiente para o produto ${product.description}`,
-        );
+      const orderItems: OrderItem[] = [];
+
+      for (const itemDto of createOrderDto.items) {
+        const product = await manager.findOneBy(Product, {
+          id: itemDto.productId,
+        });
+
+        if (!product) {
+          throw new NotFoundException(
+            `Produto ID ${itemDto.productId} não encontrado`,
+          );
+        }
+
+        if (product.stock < itemDto.quantity) {
+          throw new BadRequestException(
+            `Estoque insuficiente para o produto ${product.description}`,
+          );
+        }
+
+        product.stock -= itemDto.quantity;
+
+        await manager.save(Product, product);
+
+        const orderItem = new OrderItem();
+        orderItem.product = product;
+        orderItem.quantity = itemDto.quantity;
+        orderItem.price = Number(product.sale_price);
+
+        orderItems.push(orderItem);
       }
 
-      const orderItem = new OrderItem();
-      orderItem.product = product;
-      orderItem.quantity = itemDto.quantity;
+      const order = manager.create(Order, {
+        customer: customer,
+        user: user,
+        items: orderItems,
+      });
 
-      orderItem.price = Number(product.sale_price);
-
-      orderItems.push(orderItem);
-    }
-
-    const order = this.orderRepository.create({
-      customer: customer,
-      user: user,
-      items: orderItems,
+      return manager.save(Order, order);
     });
-
-    return this.orderRepository.save(order);
   }
 
   findAll() {
