@@ -25,7 +25,7 @@ import { OrdersModule } from './orders/orders.module';
           port: configService.get<number>('DB_PORT'),
           username: configService.get<string>('DB_USERNAME'),
           password: configService.get<string>('DB_PASSWORD'),
-          database: configService.get<string>('DB_NAME'),
+          database: configService.get<string>('DB_DATABASE'),
           isDev: configService.get<string>('IS_DEV'),
         };
 

@@ -10,14 +10,46 @@ services:
       - "5434:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+    networks:
+      - excellent-network
 
-  # TODO: Finalizar configuração do docker compose
-  # backend:
-  #   build: ./api
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - db
+  backend:
+    build: 
+      context: ./api 
+      dockerfile: Dockerfile
+    container_name: teste_api
+    environment:
+      
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USERNAME: admin
+      DB_PASSWORD: password
+      DB_DATABASE: teste_tecnico_db
+      JWT_SECRET: sua_chave_secreta_aqui
+    ports:
+      - "3000:3000"
+    depends_on:
+      - db
+    volumes:
+      - ./api/uploads:/app/uploads 
+    networks:
+      - excellent-network
+
+  frontend:
+    build:
+      context: ./frontend 
+      dockerfile: Dockerfile
+    container_name: teste_web
+    ports:
+      - "4200:80" 
+    depends_on:
+      - backend
+    networks:
+      - excellent-network
 
 volumes:
   pgdata:
+
+networks:
+  excellent-network:
+    driver: bridge
