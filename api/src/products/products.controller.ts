@@ -9,6 +9,7 @@ import {
   UseInterceptors,
   UploadedFiles,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
@@ -21,6 +22,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles } from '../auth/roles.decorator';
 import { UserRole } from '../users/role.enum';
 import { ApiConsumes, ApiTags, ApiBearerAuth } from '@nestjs/swagger';
+import { PaginationDto } from 'src/common/dto/pagination.dto';
 
 @ApiTags('Products')
 @ApiBearerAuth()
@@ -58,8 +60,8 @@ export class ProductsController {
   }
 
   @Get()
-  findAll() {
-    return this.productsService.findAll();
+  findAll(@Query() paginationDto: PaginationDto) {
+    return this.productsService.findAll(paginationDto);
   }
 
   @Get(':id')

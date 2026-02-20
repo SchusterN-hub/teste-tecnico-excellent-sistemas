@@ -216,10 +216,17 @@ export class OrdersComponent implements OnInit {
   }
 
   loadData() {
-    this.http
-      .get<any[]>(`${environment.apiUrl}/customers`)
-      .subscribe((data) => (this.customers = data));
-    this.productsService.getAll().subscribe((data) => (this.products = data));
+    this.http.get<any>(`${environment.apiUrl}/customers`).subscribe((res) => {
+      this.customers = Array.isArray(res) ? res : res.data || [];
+    });
+
+    this.productsService.getAll(1, 100).subscribe({
+      next: (res) => {
+        this.products = res.data;
+      },
+      error: (err) =>
+        console.error('Erro ao carregar produtos para venda', err),
+    });
   }
 
   get total(): number {
@@ -276,7 +283,7 @@ export class OrdersComponent implements OnInit {
         });
         this.cart = [];
         this.headerForm.reset();
-        this.loadData(); // Recarrega para atualizar os estoques no select
+        this.loadData();
       },
       error: (err) => {
         this.snack.open(

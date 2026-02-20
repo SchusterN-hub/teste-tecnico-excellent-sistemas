@@ -10,6 +10,8 @@ import { CommonModule } from '@angular/common';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { environment } from '../../../enviroments/environment';
 import { NgxMaskDirective } from 'ngx-mask';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatPaginatorModule, PageEvent } from '@angular/material/paginator';
 
 @Component({
   selector: 'app-products',
@@ -23,7 +25,9 @@ import { NgxMaskDirective } from 'ngx-mask';
     MatIconModule,
     MatCardModule,
     MatSnackBarModule,
+    MatFormFieldModule,
     NgxMaskDirective,
+    MatPaginatorModule,
   ],
   template: `
     <div class="container">
@@ -34,12 +38,16 @@ import { NgxMaskDirective } from 'ngx-mask';
         <mat-card-content>
           <form [formGroup]="form" (ngSubmit)="save()">
             <div class="row">
-              <mat-form-field appearance="outline" class="flex-grow">
+              <mat-form-field
+                appearance="outline"
+                class="flex-grow"
+                floatLabel="always"
+              >
                 <mat-label>Descrição</mat-label>
-                <input matInput formControlName="description" />
+                <input matInput type="text" formControlName="description" />
               </mat-form-field>
 
-              <mat-form-field appearance="outline">
+              <mat-form-field appearance="outline" floatLabel="always">
                 <mat-label>Preço</mat-label>
                 <input
                   matInput
@@ -52,7 +60,11 @@ import { NgxMaskDirective } from 'ngx-mask';
                 />
               </mat-form-field>
 
-              <mat-form-field appearance="outline" style="width: 100px">
+              <mat-form-field
+                appearance="outline"
+                style="width: 100px"
+                floatLabel="always"
+              >
                 <mat-label>Estoque</mat-label>
                 <input matInput type="number" formControlName="stock" />
               </mat-form-field>
@@ -71,7 +83,12 @@ import { NgxMaskDirective } from 'ngx-mask';
               </span>
             </div>
 
-            <button mat-raised-button color="primary" [disabled]="form.invalid">
+            <button
+              mat-raised-button
+              color="primary"
+              type="submit"
+              [disabled]="form.status !== 'VALID'"
+            >
               Salvar Produto
             </button>
           </form>
@@ -119,6 +136,14 @@ import { NgxMaskDirective } from 'ngx-mask';
         <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
         <tr mat-row *matRowDef="let row; columns: displayedColumns"></tr>
       </table>
+
+      <mat-paginator
+        [length]="totalItems"
+        [pageSize]="pageSize"
+        [pageSizeOptions]="[5, 10, 20]"
+        (page)="onPageChange($event)"
+      >
+      </mat-paginator>
     </div>
   `,
   styles: [
@@ -128,10 +153,7 @@ import { NgxMaskDirective } from 'ngx-mask';
         flex-direction: column;
         gap: 20px;
       }
-      .row {
-        display: flex;
-        gap: 10px;
-      }
+
       .flex-grow {
         flex: 1;
       }
@@ -152,6 +174,11 @@ import { NgxMaskDirective } from 'ngx-mask';
         color: green;
         font-weight: bold;
       }
+      .row {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+      }
     `,
   ],
 })
@@ -163,14 +190,27 @@ export class ProductsComponent implements OnInit {
   products: Product[] = [];
   selectedFiles: File[] = [];
 
+  totalItems = 0;
+  pageSize = 10;
+  pageIndex = 0;
+
   backendUrl = environment.apiUrl.replace('/api/v1', '');
 
   displayedColumns = ['image', 'description', 'price', 'stock', 'actions'];
 
   form = this.fb.group({
-    description: ['', Validators.required],
-    sale_price: [0, [Validators.required, Validators.min(0.01)]],
-    stock: [0, [Validators.required, Validators.min(0)]],
+    description: this.fb.control('', {
+      validators: Validators.required,
+      nonNullable: true,
+    }),
+    sale_price: this.fb.control('', {
+      validators: Validators.required,
+      nonNullable: true,
+    }),
+    stock: this.fb.control(0, {
+      validators: [Validators.required, Validators.min(0)],
+      nonNullable: true,
+    }),
   });
 
   ngOnInit() {
@@ -178,7 +218,32 @@ export class ProductsComponent implements OnInit {
   }
 
   load() {
-    this.service.getAll().subscribe((data) => (this.products = data));
+    const pageParaApi = this.pageIndex + 1;
+
+    this.service.getAll(pageParaApi, this.pageSize).subscribe({
+      next: (res: any) => {
+        if (res && res.data) {
+          this.products = res.data;
+          this.totalItems = res.meta?.total || 0;
+        } else {
+          this.products = Array.isArray(res) ? res : [];
+          this.totalItems = this.products.length;
+        }
+      },
+      error: (err) => {
+        console.error('Erro ao carregar produtos:', err);
+        this.products = [];
+        this.snack.open('Erro ao carregar lista de produtos', 'X', {
+          duration: 3000,
+        });
+      },
+    });
+  }
+
+  onPageChange(event: PageEvent) {
+    this.pageIndex = event.pageIndex;
+    this.pageSize = event.pageSize;
+    this.load();
   }
 
   onFileSelected(event: any) {
@@ -201,7 +266,7 @@ export class ProductsComponent implements OnInit {
 
     const product: Product = {
       description: formValue.description as string,
-      stock: formValue.stock as number,
+      stock: Number(formValue.stock),
       sale_price: parseFloat(rawPrice),
     };
 
@@ -210,7 +275,8 @@ export class ProductsComponent implements OnInit {
         this.snack.open('Produto criado com sucesso!', 'OK', {
           duration: 3000,
         });
-        this.form.reset();
+
+        this.form.reset({ description: '', sale_price: '', stock: 0 });
         this.selectedFiles = [];
         this.load();
       },

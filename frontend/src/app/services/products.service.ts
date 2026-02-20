@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { environment } from '../../enviroments/environment';
+import { Observable } from 'rxjs';
 
 export interface Product {
   id?: string;
@@ -10,13 +11,27 @@ export interface Product {
   images?: string[];
 }
 
+export interface PaginatedProducts {
+  data: Product[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    last_page: number;
+  };
+}
+
 @Injectable({ providedIn: 'root' })
 export class ProductsService {
   private http = inject(HttpClient);
   private apiUrl = `${environment.apiUrl}/products`;
 
-  getAll() {
-    return this.http.get<Product[]>(this.apiUrl);
+  getAll(page: number = 1, limit: number = 10): Observable<PaginatedProducts> {
+    const params = new HttpParams()
+      .set('page', page.toString())
+      .set('limit', limit.toString());
+
+    return this.http.get<PaginatedProducts>(this.apiUrl, { params });
   }
 
   create(product: Product, files: File[]) {
@@ -34,6 +49,7 @@ export class ProductsService {
 
     return this.http.post(this.apiUrl, formData);
   }
+
   delete(id: string) {
     return this.http.delete(`${this.apiUrl}/${id}`);
   }
